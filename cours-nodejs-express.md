@@ -1,819 +1,416 @@
-# 🚀 API REST avec Node.js, Express & TypeScript
-### Guide de Niveau Production — Architecture en Couches
+# 🚀 Développer une API REST Complète avec Node.js, Express & Sequelize
+## Le Cours Complet
 
 ---
 
-> **À qui s'adresse ce cours ?**
-> Développeurs ayant des bases en JavaScript/TypeScript, souhaitant construire des API REST robustes sans framework opinionné comme NestJS.
+> **Objectif de ce cours :** Apprendre à créer une API REST professionnelle de A à Z en JavaScript. Au lieu d'utiliser des exemples théoriques, ce cours se base sur un cas pratique réel : la création d'un backend complet gérant des utilisateurs, des objets/produits, une base de données SQL et des uploads d'images.
 >
-> **Stack technique :** Node.js · Express · TypeScript · Zod · TypeORM · PostgreSQL
+> **Stack technique abordée :** Node.js · Express · JavaScript · Sequelize · PostgreSQL (ou MySQL) · JWT · Bcrypt · Multer
 
 ---
 
 ## 📋 Table des Matières
 
-1. [Pourquoi Node.js + Express + TypeScript ?](#1-pourquoi-nodejs--express--typescript-)
-2. [Initialisation du projet](#2-initialisation-du-projet)
-3. [Architecture en couches](#3-architecture-en-couches)
-4. [CRUD en mémoire — Gestion de Livres](#4-crud-en-mémoire--gestion-de-livres)
-5. [Validation des données avec Zod](#5-validation-des-données-avec-zod)
-6. [Gestion globale des erreurs](#6-gestion-globale-des-erreurs)
-7. [Persistance PostgreSQL avec TypeORM](#7-persistance-postgresql-avec-typeorm)
-8. [Récapitulatif et structure finale](#8-récapitulatif-et-structure-finale)
+1. [Introduction à Node.js, Express et aux APIs REST](#chapitre-1--introduction-à-nodejs-express-et-aux-apis-rest)
+2. [Initialisation et Création du Serveur](#chapitre-2--initialisation-et-création-du-serveur)
+3. [L'Architecture MVC (Modèle-Vue-Contrôleur)](#chapitre-3--larchitecture-mvc)
+4. [La Base de Données avec l'ORM Sequelize](#chapitre-4--la-base-de-données-avec-lorm-sequelize)
+5. [Le Routage et les Opérations CRUD](#chapitre-5--le-routage-et-les-opérations-crud)
+6. [Sécurité et Authentification (Bcrypt & JWT)](#chapitre-6--sécurité-et-authentification-bcrypt--jwt)
+7. [Gérer l'Upload de Fichiers (Multer)](#chapitre-7--gérer-lupload-de-fichiers-multer)
+8. [Finalisation : CORS et Fichiers Statiques](#chapitre-8--finalisation--cors-et-fichiers-statiques)
 
 ---
 
-## 1. Pourquoi Node.js + Express + TypeScript ?
+## Chapitre 1 : Introduction à Node.js, Express et aux APIs REST
 
-### Node.js
+### Qu'est-ce que Node.js ?
+Historiquement, le JavaScript ne fonctionnait que dans les navigateurs web (Chrome, Firefox, etc.). **Node.js** est un environnement d'exécution qui permet de faire tourner du JavaScript côté serveur. Il est extrêmement performant grâce à son fonctionnement "non-bloquant" (asynchrone).
 
-Node.js est un **environnement d'exécution JavaScript côté serveur**. Il utilise un modèle non-bloquant basé sur les événements, ce qui le rend très efficace pour les API I/O-intensives.
+### Qu'est-ce qu'Express ?
+**Express** est un framework minimaliste pour Node.js. Il fournit une série d'outils robustes pour créer des serveurs web et des APIs facilement, en gérant le routage (les URLs) et les requêtes HTTP.
 
-### Express
-
-Express est le framework HTTP le plus populaire de l'écosystème Node.js. Il est **minimaliste et non-opinionné** : il ne t'impose aucune structure. C'est à toi de définir ton architecture — ce qui est un avantage en production car tu gardes le contrôle total.
-
-### TypeScript
-
-TypeScript ajoute le **typage statique** à JavaScript. En production, cela signifie :
-- Les erreurs sont détectées **à la compilation**, pas à l'exécution
-- Le code est **auto-documenté** grâce aux types
-- La refactorisation est **sécurisée**
-
-### Comparaison rapide
-
-| Critère | Express + TS | NestJS |
-|---|---|---|
-| Structure | Libre (tu décides) | Imposée (modules, DI) |
-| Courbe d'apprentissage | Douce | Moyenne |
-| Flexibilité | Maximale | Limitée par le framework |
-| Cas d'usage | APIs simples à moyennes | Applications enterprise |
+### Qu'est-ce qu'une API REST ?
+Une API (Application Programming Interface) permet à deux applications de communiquer entre elles. Dans notre cas, un "Frontend" (site web en React, application mobile, etc.) va envoyer des requêtes HTTP à notre "Backend" (notre API Node.js), qui va interroger la base de données et renvoyer une réponse au format JSON.
 
 ---
 
-## 2. Initialisation du projet
+## Chapitre 2 : Initialisation et Création du Serveur
 
-### Étape 1 — Créer le projet
+Pour démarrer un projet, on initialise npm (le gestionnaire de paquets de Node) et on installe Express.
 
 ```bash
-mkdir api-bibliotheque
-cd api-bibliotheque
 npm init -y
+npm install express
 ```
 
-### Étape 2 — Installer les dépendances
+### Le point d'entrée : `server.js`
 
-```bash
-# Dépendances de production
-npm install express dotenv
+Le fichier `server.js` a une seule responsabilité : créer un serveur HTTP avec Node.js et le mettre en écoute sur un port spécifique (par exemple 3000).
 
-# Dépendances de développement (TypeScript, types, rechargement à chaud)
-npm install -D typescript ts-node-dev @types/node @types/express
+```javascript
+// server.js
+const http = require('http');
+const app = require('./app'); // On importe notre application Express
 
-# Validation
-npm install zod
+const port = process.env.PORT || 3000;
+app.set('port', port);
+
+const server = http.createServer(app);
+
+server.listen(port, () => {
+    console.log(`Le serveur écoute sur le port ${port}`);
+});
 ```
 
-### Étape 3 — Configurer TypeScript
+### L'application Express : `app.js`
 
-```bash
-npx tsc --init
-```
+Le fichier `app.js` contient la logique de notre framework Express.
 
-Remplace le contenu de `tsconfig.json` par :
+```javascript
+// app.js
+const express = require('express');
 
-```json
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "lib": ["ES2020"],
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
-}
-```
-
-### Étape 4 — Configurer les scripts dans package.json
-
-```json
-{
-  "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
-  }
-}
-```
-
-> `--respawn` relance automatiquement le serveur à chaque modification. C'est l'équivalent de `npm run start:dev` dans NestJS.
-
-### Étape 5 — Le point d'entrée
-
-```typescript
-// src/index.ts
-import express from 'express';
-import { livresRouter } from './routes/livres.routes';
-import { errorHandler } from './middlewares/error.middleware';
-
+// Création de l'application Express
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Middleware global : parse le JSON dans le corps des requêtes
+// Middleware pour parser le corps des requêtes en JSON
 app.use(express.json());
 
-// Routes
-app.use('/livres', livresRouter);
-
-// Middleware de gestion globale des erreurs (DOIT être en dernier)
-app.use(errorHandler);
-
-app.listen(PORT, () => {
-  console.log(`Serveur démarré sur http://localhost:${PORT}`);
-});
-
-export default app;
+// Exportation de l'application pour l'utiliser dans server.js
+module.exports = app;
 ```
+> **La notion de Middleware :** Dans Express, un middleware est une fonction qui intercepte la requête HTTP, fait quelque chose avec, et passe la main à la fonction suivante. `express.json()` est un middleware qui prend les données envoyées par l'utilisateur et les transforme en un objet JavaScript lisible dans `req.body`.
 
 ---
 
-## 3. Architecture en couches
+## Chapitre 3 : L'Architecture MVC
 
-Sans framework opinionné, **tu es responsable de l'organisation**. L'architecture en couches est le standard de l'industrie.
+Pour éviter d'avoir un fichier `app.js` de 5000 lignes, nous allons organiser notre code selon l'architecture **MVC** (Modèle, Vue, Contrôleur) adaptée aux APIs.
 
-```
-Requête HTTP
-     │
-     ▼
-┌─────────────┐
-│   ROUTES    │  src/routes/       ← Définit les URLs et méthodes HTTP
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│CONTRÔLEURS  │  src/controllers/  ← Parse req, appelle le service, renvoie res
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  SERVICES   │  src/services/     ← Logique métier pure (pas d'Express ici !)
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ BASE DE     │  src/entities/     ← Entités TypeORM / Repository
-│ DONNÉES     │
-└─────────────┘
-```
+- **Models (`models/`)** : Représentent la structure de nos données dans la base de données (Utilisateurs, Objets).
+- **Controllers (`controllers/`)** : Contiennent la logique métier (Que se passe-t-il quand on crée un objet ?).
+- **Routes (`routes/`)** : Définissent les URLs de l'API (`/api/stuff`) et les relient aux contrôleurs.
+- **Middlewares (`middleware/`)** : Fonctions intermédiaires de vérification (sécurité, gestion de fichiers).
 
-### Règle d'or
-
-> Le service **ne connaît pas Express**. Il ne manipule jamais `req` ni `res`. Il reçoit des données, fait son travail, et retourne un résultat. Cela le rend **testable indépendamment**.
-
-### Structure des dossiers
-
-```
-src/
+Voici la structure de notre projet :
+```text
+backend/
+├── config/database.js
+├── models/
 ├── controllers/
-│   └── livres.controller.ts
-├── services/
-│   └── livres.service.ts
 ├── routes/
-│   └── livres.routes.ts
-├── middlewares/
-│   ├── error.middleware.ts
-│   └── validate.middleware.ts
-├── schemas/
-│   └── livre.schema.ts          ← Schémas Zod (équivalent des DTOs)
-├── types/
-│   └── livre.types.ts           ← Interfaces TypeScript
-└── index.ts
+├── middleware/
+├── images/
+├── app.js
+└── server.js
 ```
 
 ---
 
-## 4. CRUD en mémoire — Gestion de Livres
+## Chapitre 4 : La Base de Données avec l'ORM Sequelize
 
-### Les types TypeScript
+Plutôt que d'écrire des requêtes SQL complexes (`SELECT * FROM users`), nous utilisons un **ORM** (Object-Relational Mapping) appelé **Sequelize**. Il permet de manipuler la base de données en utilisant du JavaScript.
 
-```typescript
-// src/types/livre.types.ts
+### Connexion à la base de données
+Nous créons un fichier `config/database.js` pour configurer la connexion à PostgreSQL.
 
-// Interface qui définit la forme d'un livre en base de données
-export interface Livre {
-  id: number;
-  titre: string;
-  auteur: string;
-  anneePublication: number;
-  isbn: string;
-}
+```javascript
+const { Sequelize } = require('sequelize');
 
-// Type pour la création (sans id, il est généré automatiquement)
-export type CreateLivrePayload = Omit<Livre, 'id'>;
+const sequelize = new Sequelize('nom_de_la_base', 'utilisateur', 'mot_de_passe', {
+    host: 'localhost',
+    dialect: 'postgres'
+});
 
-// Type pour la mise à jour (tous les champs sont optionnels)
-export type UpdateLivrePayload = Partial<CreateLivrePayload>;
+module.exports = sequelize;
 ```
 
-### Le service
+### Création d'un Modèle (`models/Thing.js`)
 
-```typescript
-// src/services/livres.service.ts
-import { Livre, CreateLivrePayload, UpdateLivrePayload } from '../types/livre.types';
+Un modèle définit la structure d'une table dans notre base de données. Créons le modèle `Thing` (un objet mis en vente).
 
-// Erreur métier personnalisée
-export class NotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NotFoundError';
-  }
-}
+```javascript
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+const User = require('./User'); // On importe le modèle utilisateur
 
-export class ConflictError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ConflictError';
-  }
-}
+const Thing = sequelize.define('Thing', {
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false // Ce champ est obligatoire
+  },
+  price: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  description: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  imageUrl: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+});
 
-export class LivresService {
-  // Base de données en mémoire (sera remplacée par TypeORM)
-  private livres: Livre[] = [
-    {
-      id: 1,
-      titre: 'Clean Code',
-      auteur: 'Robert C. Martin',
-      anneePublication: 2008,
-      isbn: '9780132350884',
+// Définition de la relation : Un utilisateur possède plusieurs "Things"
+User.hasMany(Thing, { foreignKey: 'userId' });
+Thing.belongsTo(User, { foreignKey: 'userId' });
+
+module.exports = Thing;
+```
+
+---
+
+## Chapitre 5 : Le Routage et les Opérations CRUD
+
+CRUD signifie **Create, Read, Update, Delete**. Ce sont les 4 opérations de base de toute application.
+
+### Le Contrôleur (`controllers/stuff.js`)
+
+C'est ici qu'on écrit la logique pour manipuler nos modèles.
+
+```javascript
+const Thing = require('../models/Thing');
+
+// Read - Récupérer tous les objets (GET)
+exports.getAllThings = (req, res, next) => {
+    Thing.findAll()
+        .then(things => res.status(200).json(things))
+        .catch(error => res.status(400).json({ error }));
+};
+
+// Read - Récupérer un objet précis par son ID (GET)
+exports.getThingById = (req, res, next) => {
+    Thing.findByPk({ _id: req.params.id })
+        .then(thing => res.status(200).json(thing))
+        .catch(error => res.status(404).json({ error }));
+};
+```
+
+### Le Routeur (`routes/stuff.js`)
+
+Le routeur associe une méthode HTTP (GET, POST...) et une URL à une fonction de notre contrôleur.
+
+```javascript
+const express = require('express');
+const router = express.Router();
+const stuffCtrl = require('../controllers/stuff');
+
+router.get('/', stuffCtrl.getAllThings);
+router.get('/:id', stuffCtrl.getThingById);
+
+module.exports = router;
+```
+
+On enregistre ensuite ce routeur dans `app.js` :
+```javascript
+const stuffRoutes = require('./routes/stuff');
+app.use('/api/stuff', stuffRoutes);
+```
+
+---
+
+## Chapitre 6 : Sécurité et Authentification (Bcrypt & JWT)
+
+Stocker des mots de passe en clair dans une base de données est extrêmement dangereux. Nous allons utiliser **Bcrypt** pour les hacher, et **JSON Web Token (JWT)** pour garder l'utilisateur connecté de manière sécurisée sans utiliser de sessions côté serveur.
+
+### Inscription et Connexion (`controllers/user.js`)
+
+```javascript
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+exports.signup = (req, res, next) => {
+    // On hache le mot de passe (10 est le nombre de tours de salage)
+    bcrypt.hash(req.body.password, 10)
+        .then(hash => {
+            User.create({
+                email: req.body.email,
+                password: hash // On enregistre le hash, pas le mot de passe clair !
+            })
+            .then(() => res.status(201).json({ message: 'Utilisateur créé !' }))
+            .catch(error => res.status(400).json({ error }));
+        });
+};
+
+exports.login = (req, res, next) => {
+    User.findOne({ where: { email: req.body.email } })
+        .then(user => {
+            if (!user) return res.status(401).json({ error: 'Utilisateur non trouvé !' });
+
+            // On compare le mot de passe saisi avec le hash enregistré
+            bcrypt.compare(req.body.password, user.password)
+                .then(valid => {
+                    if (!valid) return res.status(401).json({ error: 'Mot de passe incorrect !' });
+                    
+                    // Si tout est bon, on crée un Token JWT valable 24h
+                    res.status(200).json({
+                        userId: user.id,
+                        token: jwt.sign(
+                            { userId: user.id },
+                            'MA_CLE_SECRETE_TRES_LONGUE',
+                            { expiresIn: '24h' }
+                        )
+                    });
+                });
+        });
+};
+```
+
+### Le Middleware de protection (`middleware/auth.js`)
+
+Pour protéger nos routes (ex: empêcher la création d'un objet si on n'est pas connecté), on crée un middleware qui vérifie la présence et la validité du Token.
+
+```javascript
+const jwt = require('jsonwebtoken');
+
+module.exports = (req, res, next) => {
+    try {
+        // Le token arrive sous la forme "Bearer eyJhbGciOiJIUz..."
+        const token = req.headers.authorization.split(' ')[1];
+        const decodedToken = jwt.verify(token, 'MA_CLE_SECRETE_TRES_LONGUE');
+        
+        // On extrait l'ID utilisateur et on le stocke dans req.auth
+        req.auth = { userId: decodedToken.userId };
+        
+        next(); // Autorisation accordée, on passe au contrôleur
+    } catch (error) {
+        res.status(401).json({ error: 'Requête non authentifiée !' });
+    }
+};
+```
+
+On l'ajoute ensuite dans notre routeur (`routes/stuff.js`) :
+```javascript
+const auth = require('../middleware/auth');
+router.post('/', auth, stuffCtrl.createThing); // Le middleware auth s'exécute avant createThing
+```
+
+---
+
+## Chapitre 7 : Gérer l'Upload de Fichiers (Multer)
+
+Pour permettre aux utilisateurs d'envoyer des images, on utilise le package **Multer**.
+
+### Configuration de Multer (`middleware/multer-config.js`)
+
+```javascript
+const multer = require('multer');
+
+const MIME_TYPES = {
+    'image/jpg': 'jpg',
+    'image/jpeg': 'jpg',
+    'image/png': 'png'
+};
+
+const storage = multer.diskStorage({
+    // Indique où sauvegarder les fichiers
+    destination: (req, file, callback) => {
+        callback(null, 'images');
     },
-  ];
-
-  private nextId = 2;
-
-  findAll(): Livre[] {
-    return this.livres;
-  }
-
-  findById(id: number): Livre {
-    const livre = this.livres.find((l) => l.id === id);
-    if (!livre) {
-      throw new NotFoundError(`Livre avec l'ID ${id} introuvable.`);
+    // Génère un nom de fichier unique
+    filename: (req, file, callback) => {
+        const name = file.originalname.split(' ').join('_');
+        const extension = MIME_TYPES[file.mimetype];
+        callback(null, name + Date.now() + '.' + extension);
     }
-    return livre;
-  }
-
-  create(payload: CreateLivrePayload): Livre {
-    // Vérification de l'unicité de l'ISBN
-    const existant = this.livres.find((l) => l.isbn === payload.isbn);
-    if (existant) {
-      throw new ConflictError(`Un livre avec l'ISBN ${payload.isbn} existe déjà.`);
-    }
-
-    const nouveauLivre: Livre = { id: this.nextId++, ...payload };
-    this.livres.push(nouveauLivre);
-    return nouveauLivre;
-  }
-
-  update(id: number, payload: UpdateLivrePayload): Livre {
-    const livre = this.findById(id); // Lance NotFoundError si absent
-    const index = this.livres.indexOf(livre);
-    this.livres[index] = { ...livre, ...payload };
-    return this.livres[index];
-  }
-
-  delete(id: number): void {
-    const livre = this.findById(id);
-    this.livres = this.livres.filter((l) => l.id !== livre.id);
-  }
-}
-```
-
-### Le contrôleur
-
-```typescript
-// src/controllers/livres.controller.ts
-import { Request, Response, NextFunction } from 'express';
-import { LivresService } from '../services/livres.service';
-
-// Instance du service (en production avec un vrai DI container, ce serait injecté)
-const livresService = new LivresService();
-
-// GET /livres
-export const getAll = (req: Request, res: Response, next: NextFunction): void => {
-  try {
-    const livres = livresService.findAll();
-    res.status(200).json(livres);
-  } catch (error) {
-    next(error); // Passe l'erreur au middleware global
-  }
-};
-
-// GET /livres/:id
-export const getById = (req: Request, res: Response, next: NextFunction): void => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    const livre = livresService.findById(id);
-    res.status(200).json(livre);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// POST /livres
-export const create = (req: Request, res: Response, next: NextFunction): void => {
-  try {
-    // req.body est déjà validé par le middleware Zod (voir section 5)
-    const livre = livresService.create(req.body);
-    res.status(201).json(livre);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// PUT /livres/:id
-export const update = (req: Request, res: Response, next: NextFunction): void => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    const livre = livresService.update(id, req.body);
-    res.status(200).json(livre);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// DELETE /livres/:id
-export const remove = (req: Request, res: Response, next: NextFunction): void => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    livresService.delete(id);
-    res.status(200).json({ message: 'Livre supprimé avec succès.' });
-  } catch (error) {
-    next(error);
-  }
-};
-```
-
-### Les routes
-
-```typescript
-// src/routes/livres.routes.ts
-import { Router } from 'express';
-import { getAll, getById, create, update, remove } from '../controllers/livres.controller';
-import { validate } from '../middlewares/validate.middleware';
-import { createLivreSchema, updateLivreSchema } from '../schemas/livre.schema';
-
-export const livresRouter = Router();
-
-livresRouter.get('/', getAll);
-livresRouter.get('/:id', getById);
-
-// Le middleware validate() s'exécute AVANT le contrôleur
-livresRouter.post('/', validate(createLivreSchema), create);
-livresRouter.put('/:id', validate(updateLivreSchema), update);
-livresRouter.delete('/:id', remove);
-```
-
----
-
-## 5. Validation des données avec Zod
-
-Zod est l'équivalent de `class-validator` dans NestJS. Il permet de définir un schéma de validation et de le faire respecter.
-
-### Les schémas Zod
-
-```typescript
-// src/schemas/livre.schema.ts
-import { z } from 'zod';
-
-// Schéma de création — tous les champs sont obligatoires
-export const createLivreSchema = z.object({
-  titre: z
-    .string({ required_error: 'Le titre est obligatoire.' })
-    .min(1, 'Le titre ne peut pas être vide.')
-    .max(200, 'Le titre ne peut pas dépasser 200 caractères.'),
-
-  auteur: z
-    .string({ required_error: "L'auteur est obligatoire." })
-    .min(2, "Le nom de l'auteur est trop court."),
-
-  anneePublication: z
-    .number({ required_error: "L'année de publication est obligatoire." })
-    .int("L'année doit être un entier.")
-    .min(1000, "L'année semble invalide."),
-
-  isbn: z
-    .string({ required_error: "L'ISBN est obligatoire." })
-    .regex(/^(?:ISBN(?:-1[03])?:? )?(?=[0-9X]{10}$|(?=(?:[0-9]+[- ]){3})[- 0-9X]{13}$|97[89][0-9]{10}$|(?=(?:[0-9]+[- ]){4})[- 0-9]{17}$)(?:97[89][- ]?)?[0-9]{1,5}[- ]?[0-9]+[- ]?[0-9]+[- ]?[0-9X]$/, {
-      message: "L'ISBN fourni est invalide.",
-    }),
 });
 
-// Schéma de mise à jour — tous les champs deviennent optionnels
-export const updateLivreSchema = createLivreSchema.partial();
-
-// Types inférés depuis les schémas (DRY : une seule source de vérité)
-export type CreateLivreDto = z.infer<typeof createLivreSchema>;
-export type UpdateLivreDto = z.infer<typeof updateLivreSchema>;
+module.exports = multer({ storage }).single('image');
 ```
 
-### Le middleware de validation
+### Mise à jour du Contrôleur de création (`controllers/stuff.js`)
 
-```typescript
-// src/middlewares/validate.middleware.ts
-import { Request, Response, NextFunction } from 'express';
-import { ZodSchema, ZodError } from 'zod';
+Puisque les données arrivent sous forme de `multipart/form-data`, on doit récupérer l'objet JSON (transformé en chaîne de caractères) et construire l'URL de l'image.
 
-// Factory : retourne un middleware configuré avec le schéma fourni
-export const validate = (schema: ZodSchema) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const result = schema.safeParse(req.body);
-
-    if (!result.success) {
-      // Formate les erreurs Zod pour une réponse lisible
-      const errors = result.error.errors.map((err) => ({
-        champ: err.path.join('.'),
-        message: err.message,
-      }));
-
-      res.status(400).json({
-        statusCode: 400,
-        error: 'Validation échouée',
-        details: errors,
-      });
-      return;
-    }
-
-    // Remplace req.body par les données validées et transformées par Zod
-    req.body = result.data;
-    next();
-  };
-};
-```
-
-**Exemple de réponse d'erreur de validation :**
-
-```json
-{
-  "statusCode": 400,
-  "error": "Validation échouée",
-  "details": [
-    { "champ": "titre", "message": "Le titre est obligatoire." },
-    { "champ": "anneePublication", "message": "L'année doit être un entier." }
-  ]
-}
-```
-
----
-
-## 6. Gestion globale des erreurs
-
-Sans gestionnaire d'erreurs global, une exception non capturée fait **planter le processus Node.js**. Ce middleware centralise la gestion des erreurs.
-
-```typescript
-// src/middlewares/error.middleware.ts
-import { Request, Response, NextFunction } from 'express';
-import { NotFoundError, ConflictError } from '../services/livres.service';
-
-// Interface pour typer les erreurs HTTP
-interface AppError extends Error {
-  statusCode?: number;
-}
-
-// Un middleware d'erreur Express a TOUJOURS 4 paramètres (err, req, res, next)
-export const errorHandler = (
-  err: AppError,
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void => {
-  // Log l'erreur côté serveur (en production, utilise un logger comme Winston)
-  console.error(`[ERROR] ${err.name}: ${err.message}`);
-
-  // Erreurs métier connues — on leur attribue le bon code HTTP
-  if (err instanceof NotFoundError) {
-    res.status(404).json({ statusCode: 404, error: err.message });
-    return;
-  }
-
-  if (err instanceof ConflictError) {
-    res.status(409).json({ statusCode: 409, error: err.message });
-    return;
-  }
-
-  // Erreur avec un statusCode explicite (ex: erreur personnalisée)
-  if (err.statusCode) {
-    res.status(err.statusCode).json({ statusCode: err.statusCode, error: err.message });
-    return;
-  }
-
-  // Erreur inconnue — 500 par défaut, ne jamais exposer les détails en production
-  res.status(500).json({
-    statusCode: 500,
-    error: 'Une erreur interne est survenue.',
-  });
-};
-```
-
-> **Pourquoi `next(error)` dans les contrôleurs ?**
-> En passant l'erreur à `next()`, Express sait qu'il doit **sauter tous les middlewares normaux** et aller directement au middleware d'erreur (celui avec 4 paramètres).
-
----
-
-## 7. Persistance PostgreSQL avec TypeORM
-
-### Installation
-
-```bash
-npm install typeorm reflect-metadata pg
-npm install -D @types/pg
-```
-
-### Configurer les variables d'environnement
-
-```bash
-# .env (ajoutez ce fichier à .gitignore !)
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USER=postgres
-DATABASE_PASSWORD=votre_mot_de_passe
-DATABASE_NAME=bibliotheque_db
-NODE_ENV=development
-```
-
-```bash
-# .gitignore
-.env
-node_modules/
-dist/
-```
-
-### La connexion à la base de données
-
-```typescript
-// src/config/database.ts
-import 'reflect-metadata';
-import { DataSource } from 'typeorm';
-import { Livre } from '../entities/livre.entity';
-import * as dotenv from 'dotenv';
-
-// Charge les variables d'environnement depuis .env
-dotenv.config();
-
-export const AppDataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.DATABASE_HOST,
-  port: parseInt(process.env.DATABASE_PORT || '5432', 10),
-  username: process.env.DATABASE_USER,
-  password: process.env.DATABASE_PASSWORD,
-  database: process.env.DATABASE_NAME,
-  entities: [Livre],
-  synchronize: process.env.NODE_ENV === 'development', // false en production !
-  logging: process.env.NODE_ENV === 'development',
-});
-```
-
-> En production, `synchronize: false` est **obligatoire**. Utilisez les **migrations TypeORM** pour modifier le schéma de la base de données.
-
-### L'entité TypeORM
-
-```typescript
-// src/entities/livre.entity.ts
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from 'typeorm';
-
-@Entity('livres')
-export class Livre {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column({ length: 200 })
-  titre: string;
-
-  @Column()
-  auteur: string;
-
-  @Column({ name: 'annee_publication' })
-  anneePublication: number;
-
-  @Column({ unique: true })
-  isbn: string;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
-}
-```
-
-### Refactoring du service avec TypeORM
-
-```typescript
-// src/services/livres.service.ts (version base de données)
-import { Repository } from 'typeorm';
-import { AppDataSource } from '../config/database';
-import { Livre } from '../entities/livre.entity';
-import { CreateLivreDto, UpdateLivreDto } from '../schemas/livre.schema';
-
-export class NotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NotFoundError';
-  }
-}
-
-export class ConflictError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ConflictError';
-  }
-}
-
-export class LivresService {
-  private readonly repo: Repository<Livre>;
-
-  constructor() {
-    this.repo = AppDataSource.getRepository(Livre);
-  }
-
-  async findAll(): Promise<Livre[]> {
-    return this.repo.find();
-  }
-
-  async findById(id: number): Promise<Livre> {
-    const livre = await this.repo.findOneBy({ id });
-    if (!livre) {
-      throw new NotFoundError(`Livre avec l'ID ${id} introuvable.`);
-    }
-    return livre;
-  }
-
-  async create(payload: CreateLivreDto): Promise<Livre> {
-    const existant = await this.repo.findOneBy({ isbn: payload.isbn });
-    if (existant) {
-      throw new ConflictError(`Un livre avec l'ISBN ${payload.isbn} existe déjà.`);
-    }
-    const livre = this.repo.create(payload);
-    return this.repo.save(livre);
-  }
-
-  async update(id: number, payload: UpdateLivreDto): Promise<Livre> {
-    const livre = await this.findById(id);
-    const livreModifie = this.repo.merge(livre, payload);
-    return this.repo.save(livreModifie);
-  }
-
-  async delete(id: number): Promise<void> {
-    const livre = await this.findById(id);
-    await this.repo.remove(livre);
-  }
-}
-```
-
-### Mettre à jour le point d'entrée
-
-```typescript
-// src/index.ts (version finale avec connexion DB)
-import 'reflect-metadata';
-import * as dotenv from 'dotenv';
-dotenv.config(); // Doit être appelé en premier
-
-import express from 'express';
-import { AppDataSource } from './config/database';
-import { livresRouter } from './routes/livres.routes';
-import { errorHandler } from './middlewares/error.middleware';
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(express.json());
-app.use('/livres', livresRouter);
-app.use(errorHandler);
-
-// On démarre le serveur seulement après avoir connecté la base de données
-AppDataSource.initialize()
-  .then(() => {
-    console.log('Connexion à PostgreSQL établie.');
-    app.listen(PORT, () => {
-      console.log(`Serveur démarré sur http://localhost:${PORT}`);
+```javascript
+exports.createThing = (req, res, next) => {
+    // On parse la chaîne de caractères envoyée par le frontend
+    const thingObject = JSON.parse(req.body.thing);
+    
+    // Construction de l'URL absolue de l'image
+    const imageUrl = `${req.protocol}://${req.get('host')}/images/${req.file.filename}`;
+    
+    const thing = new Thing({
+        ...thingObject,
+        userId: req.auth.userId, // Mesure de sécurité : utiliser le userId du token, pas de la requête !
+        imageUrl: imageUrl
     });
-  })
-  .catch((err) => {
-    console.error('Erreur de connexion à la base de données :', err);
-    process.exit(1); // Arrête le processus si la DB est inaccessible
-  });
+    
+    thing.create()
+        .then(() => res.status(201).json({ message: 'Objet créé !' }))
+        .catch(error => res.status(400).json({ error }));
+};
+```
+
+### Suppression d'un objet et de son image (`fs.unlink`)
+
+Lorsqu'on supprime un objet, il faut aussi supprimer l'image physiquement du serveur en utilisant le module File System (`fs`) natif de Node.js.
+
+```javascript
+const fs = require('fs');
+
+exports.deleteThing = (req, res, next) => {
+    Thing.findByPk({ _id: req.params.id })
+        .then(thing => {
+            // Sécurité : Seul le propriétaire peut supprimer son objet
+            if (thing.userId !== req.auth.userId) {
+                return res.status(401).json({ message: 'Non autorisé' });
+            }
+            
+            // On extrait le nom du fichier depuis l'URL
+            const filename = thing.imageUrl.split('/images/')[1];
+            
+            // On supprime le fichier physiquement
+            fs.unlink(`images/${filename}`, () => {
+                // Une fois supprimé, on supprime l'entrée dans la base de données
+                Thing.destroy({ _id: req.params.id })
+                    .then(() => res.status(200).json({ message: 'Objet supprimé !' }))
+                    .catch(error => res.status(400).json({ error }));
+            });
+        });
+};
 ```
 
 ---
 
-## 8. Récapitulatif et structure finale
+## Chapitre 8 : Finalisation : CORS et Fichiers Statiques
 
-### Structure complète du projet
+Pour que notre API soit utilisable par un navigateur web, deux dernières étapes sont nécessaires dans `app.js`.
 
-```
-api-bibliotheque/
-├── src/
-│   ├── config/
-│   │   └── database.ts           ← Connexion TypeORM
-│   ├── controllers/
-│   │   └── livres.controller.ts  ← Parse req/res, délègue au service
-│   ├── entities/
-│   │   └── livre.entity.ts       ← Entité TypeORM / schéma de table
-│   ├── middlewares/
-│   │   ├── error.middleware.ts   ← Gestionnaire global d'erreurs
-│   │   └── validate.middleware.ts ← Validation Zod
-│   ├── routes/
-│   │   └── livres.routes.ts      ← Définition des endpoints
-│   ├── schemas/
-│   │   └── livre.schema.ts       ← Schémas Zod + types inférés
-│   ├── services/
-│   │   └── livres.service.ts     ← Logique métier pure
-│   ├── types/
-│   │   └── livre.types.ts        ← Interfaces partagées
-│   └── index.ts                  ← Point d'entrée
-├── .env                          ← Variables d'environnement (non versionné)
-├── .gitignore
-├── package.json
-└── tsconfig.json
+### 1. Gérer les erreurs CORS
+Les navigateurs bloquent par défaut les requêtes HTTP entre deux serveurs différents (par exemple un frontend React sur `localhost:4000` vers une API sur `localhost:3000`). Il faut explicitement autoriser ces requêtes.
+
+```javascript
+app.use((req, res, next) => {
+  // Autorise toutes les origines (*)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Autorise certains headers
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content, Accept, Content-Type, Authorization');
+  // Autorise certaines méthodes HTTP
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  next();
+});
 ```
 
-### Tableau des routes de l'API
+### 2. Servir le dossier `images`
+Par défaut, Express ne permet pas d'accéder aux dossiers de votre serveur via une URL. Il faut déclarer le dossier `images` comme un dossier "statique".
 
-| Méthode | Route | Description | Validation |
-|---|---|---|---|
-| `GET` | `/livres` | Tous les livres | — |
-| `GET` | `/livres/:id` | Un livre par ID | — |
-| `POST` | `/livres` | Créer un livre | `createLivreSchema` |
-| `PUT` | `/livres/:id` | Modifier un livre | `updateLivreSchema` |
-| `DELETE` | `/livres/:id` | Supprimer un livre | — |
+```javascript
+const path = require('path');
 
-### Tester avec curl
-
-```bash
-# Créer un livre
-curl -X POST http://localhost:3000/livres \
-  -H "Content-Type: application/json" \
-  -d '{"titre":"Clean Code","auteur":"Robert Martin","anneePublication":2008,"isbn":"9780132350884"}'
-
-# Lister tous les livres
-curl http://localhost:3000/livres
-
-# Tester la validation (doit retourner 400)
-curl -X POST http://localhost:3000/livres \
-  -H "Content-Type: application/json" \
-  -d '{"titre":""}'
-
-# Modifier un livre
-curl -X PUT http://localhost:3000/livres/1 \
-  -H "Content-Type: application/json" \
-  -d '{"auteur":"Uncle Bob"}'
-
-# Supprimer un livre
-curl -X DELETE http://localhost:3000/livres/1
-
-# Tester le 404
-curl http://localhost:3000/livres/999
+// Dès qu'une requête arrive sur l'URL /images, on sert le dossier local "images"
+app.use('/images', express.static(path.join(__dirname, 'images')));
 ```
-
-### Ce que vous maîtrisez maintenant
-
-- [x] Initialisation d'un projet Node.js + Express + TypeScript
-- [x] Architecture en couches (Routes → Contrôleurs → Services)
-- [x] Typage strict — zéro `any`
-- [x] Validation avec Zod (équivalent DTOs NestJS)
-- [x] Middleware de validation réutilisable
-- [x] Gestion centralisée des erreurs HTTP
-- [x] Erreurs métier personnalisées (`NotFoundError`, `ConflictError`)
-- [x] Intégration TypeORM + PostgreSQL
-- [x] Configuration sécurisée via `.env`
 
 ---
 
-## Pour aller plus loin
-
-| Sujet | Outil recommandé |
-|---|---|
-| Tests unitaires | Jest + ts-jest |
-| Tests d'intégration | Supertest |
-| Authentification JWT | jsonwebtoken + middleware custom |
-| Logging production | Winston ou Pino |
-| Documentation API | Swagger UI Express |
-| Migrations DB | TypeORM CLI (`typeorm migration:generate`) |
-| Rate limiting | express-rate-limit |
-
----
-
-*Cours Node.js/Express/TypeScript — Architecture Production*
+### 🎉 Conclusion
+Félicitations ! Vous venez de construire une API REST complète, structurée, sécurisée par JWT, connectée à une base de données SQL avec Sequelize, et capable de gérer des uploads de fichiers avec Multer. Cette architecture est solide et prête à être étendue pour des projets professionnels !
