@@ -539,4 +539,4 @@ Tu as créé ta première API ! Prochaines étapes :
 
 ---
 
-*Cours débutant NestJS — Talent4Startups*
+*Cours débutant NestJS*
